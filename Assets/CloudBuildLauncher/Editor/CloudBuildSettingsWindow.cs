@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -32,21 +33,40 @@ namespace CloudBuildLauncher
             {
                 settings = CloudBuildSettings.CreateSettingsAsset();
             }
-            this.targetConfigs = settings.targetConfigs.ToList();
+            targetConfigs = settings.targetConfigs.ToList();
             return settings;
         }
 
         private void Initialize()
         {
-            if (this.settings == null) {
-                this.settings = LoadOrCreateSettings();
+            if (settings == null) {
+                settings = LoadOrCreateSettings();
+            }
+
+            if (settings != null
+                && !string.IsNullOrEmpty(settings.orgId)
+                && !string.IsNullOrEmpty(settings.projectId)
+                && !string.IsNullOrEmpty(settings.apiToken))
+            {
+                var response = FetchBuildTargets();
+                if (response != null)
+                {
+                    buildTargetIds = response.TargetIds.ToList();
+                }
             }
         }
+
+        private int selected;
+
+        private List<string> buildTargetIds = new List<string>();
+
+        private string filterText = string.Empty;
 
         private void OnGUI()
         {
             if (!initialized)
             {
+                initialized = true;
                 Initialize();
             }
 
@@ -61,6 +81,49 @@ namespace CloudBuildLauncher
             CommentBox("Project ID can be found on Overview page on the Unity dashboard of the target project.\nProject ID is like 1234abcd-12ab-12ab-12ab-123456abcdef");
             var apiToken = EditorGUILayout.TextField("API Token", settings.apiToken);
             CommentBox("API Token can be found under `Settings` -> `Cloud Build` on the Unity dashboard of the target project.\nAPI Token is like 1234567890abcdef1234567890abcdef");
+
+            
+            // build config filter
+            GUILayout.BeginHorizontal();
+
+            IEnumerable<string> filteredNames = buildTargetIds;
+            if (!string.IsNullOrEmpty(filterText))
+            {
+                filteredNames = buildTargetIds.Where(name => name.Contains(filterText));
+            }
+            selected = EditorGUILayout.Popup("Select Config", selected, filteredNames.ToArray());
+
+            GUILayout.Label("Filter:", GUILayout.Width(40));
+            filterText = GUILayout.TextField(filterText, "SearchTextField", GUILayout.Width(80)).Trim();
+            GUI.enabled = !string.IsNullOrEmpty(filterText);
+            if (GUILayout.Button("Clear", "SearchCancelButton"))
+            {
+                filterText = string.Empty;
+            }
+            GUI.enabled = true;
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Reload Configs", GUILayout.Width(100)))
+            {
+                var response = FetchBuildTargets();
+                if (response != null)
+                {
+                    buildTargetIds = response.TargetIds.ToList();
+                }
+            }
+
+            // Button "Add To Targets"
+            var selectable = (selected >= 0 && selected < filteredNames.Count());
+            EditorGUI.BeginDisabledGroup(!selectable);
+            if (GUILayout.Button("Add To Targets"))
+            {
+                var selectedId = filteredNames.ElementAt(selected);
+                targetConfigs.Add(selectedId);
+            }
+            EditorGUI.EndDisabledGroup();
+            GUILayout.EndHorizontal();
 
             var so = new SerializedObject(this);
             so.Update();
@@ -83,5 +146,41 @@ namespace CloudBuildLauncher
         {
             EditorGUILayout.HelpBox(text, MessageType.Info);
         }
+
+        BuildTargetResponseModel FetchBuildTargets()
+        {
+            var api = new CloudBuildApi(settings);
+            IEnumerator coLaunch = api.ListBuildTargets();
+            while (coLaunch.MoveNext())
+            {
+                Debug.Log("Current: " + coLaunch.Current);
+            }
+            if ((string)coLaunch.Current != "error")
+            {
+                var json = (string) coLaunch.Current;
+                Debug.Log("build targets: " + json);
+                var modifiedJson = "{ \"targets\":" + json + "}";
+                var result = JsonUtility.FromJson<BuildTargetResponseModel>(modifiedJson);
+                if (result == null || result.TargetIds == null)
+                {
+                    Debug.LogError("result is null.");
+                    return null;
+                }
+                Debug.Log("build target names: " + String.Join(", ", result.TargetIds));
+
+                return result;
+
+                // success
+                //status += "start building target:" + targetId + " succeeded.\n";
+            }
+            else
+            {
+                // failure
+                var msg = "list build targets failed.\n";
+                //status += msg;
+                throw new Exception(msg);
+            }
+        }
+
     }
 }

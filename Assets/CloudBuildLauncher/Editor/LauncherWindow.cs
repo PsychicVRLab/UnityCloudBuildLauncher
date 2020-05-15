@@ -1,11 +1,10 @@
 ﻿using System;
-using UnityEngine;
-using UnityEditor;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine.Networking;
-using System.Text;
 using System.Threading;
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.Networking;
 
 namespace CloudBuildLauncher
 {
@@ -15,8 +14,6 @@ namespace CloudBuildLauncher
     /// </summary>
     public class LauncherWindow : EditorWindow
     {
-        private const string cloudBuildApiDomain = "build-api.cloud.unity3d.com";
-        private const string cloudBuildApiBaseUrl = "https://" + cloudBuildApiDomain + "/api/v1";
 
         private CloudBuildSettings settings;
         private GUIStyle styleWarningLabel;
@@ -166,11 +163,12 @@ namespace CloudBuildLauncher
 
         void AdjustAndLaunchConfig(string targetId)
         {
+            var api = new CloudBuildApi(settings);
             if (changeBranch)
             {
                 // Adjust Config
                 Debug.Log("Adjust config for target: " + targetId + " branch: " + branchName);
-                IEnumerator co = ChangeConfigBranch(targetId, branchName);
+                IEnumerator co = api.ChangeConfigBranch(targetId, branchName);
                 while (co.MoveNext())
                 {
                     Debug.Log("Current: " + co.Current);
@@ -191,7 +189,7 @@ namespace CloudBuildLauncher
 
             // Launch the build
             Debug.Log("Launching target: " + targetId);
-            IEnumerator coLaunch = LaunchBuild(targetId);
+            IEnumerator coLaunch = api.LaunchBuild(targetId);
             while (coLaunch.MoveNext())
             {
                 Debug.Log("Current: " + coLaunch.Current);
@@ -210,80 +208,6 @@ namespace CloudBuildLauncher
             }
         }
 
-        string GetConfigUpdateUrl(string buildTargetId)
-        {
-            return String.Format("{0}/orgs/{1}/projects/{2}/buildtargets/{3}",
-                cloudBuildApiBaseUrl, settings.orgId, settings.projectId, buildTargetId);
-        }
-
-        string GetBuildCreateUrl(string buildTargetId)
-        {
-            return String.Format("{0}/orgs/{1}/projects/{2}/buildtargets/{3}/builds",
-                cloudBuildApiBaseUrl, settings.orgId, settings.projectId, buildTargetId);
-        }
-
-        string GetChangeConfigBranchPayload(string branchName)
-        {
-            return "{" +
-                   "  \"settings\": {" +
-                   "    \"scm\": {" +
-                   "      \"type\": \"git\"," +
-                   "      \"branch\":\"" + branchName + "\"" +
-                   "    }" +
-                   "  }" +
-                   "}";
-        }
-
-        IEnumerator ChangeConfigBranch(string targetId, string branchName)
-        {
-            var jsonStr = GetChangeConfigBranchPayload(branchName);
-            Debug.Log("jsonStr:" + jsonStr);
-            var request = new UnityWebRequest(GetConfigUpdateUrl(targetId), "PUT");
-            request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(jsonStr));
-            request.SendAndWaitCompletion(settings.apiToken, 10.0f);
-            if (request.isNetworkError)
-            {
-                Debug.Log("error: " + request.error);
-                yield return "false";
-            }
-            else
-            {
-                if (request.responseCode == 200)
-                {
-                    Debug.Log("success!");
-                    yield return "true";
-                }
-                else
-                {
-                    Debug.Log("failed. response code:" + request.responseCode);
-                    yield return "false";
-                }
-            }
-        }
-
-        IEnumerator LaunchBuild(string targetId)
-        {
-            var request = new UnityWebRequest(GetBuildCreateUrl(targetId), "POST");
-            request.SendAndWaitCompletion(settings.apiToken, 10.0f);
-            if (request.isNetworkError)
-            {
-                Debug.Log("error: " + request.error);
-                yield return "false";
-            }
-            else
-            {
-                if (request.responseCode == 202) // 202が返ってくるので注意
-                {
-                    Debug.Log("success!");
-                    yield return "true";
-                }
-                else
-                {
-                    Debug.Log("failed. response code:" + request.responseCode);
-                    yield return "false";
-                }
-            }
-        }
     }
 
     static class UnityWebRequestExt
