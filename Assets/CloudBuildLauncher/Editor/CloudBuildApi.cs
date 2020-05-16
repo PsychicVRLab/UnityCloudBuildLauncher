@@ -35,6 +35,23 @@ namespace CloudBuildLauncher
         }
     }
 
+    [Serializable]
+    public class GenericArrayResponseModel<T>
+    {
+        public List<T> items;
+    }
+
+
+    [Serializable]
+    public class ProjectModel
+    {
+        public string name;
+        public string projectid;
+        public string orgName;
+        public string orgid;
+        public string guid; // project guid
+    }
+
     public class CloudBuildApi
     {
         private const string cloudBuildApiDomain = "build-api.cloud.unity3d.com";
@@ -63,6 +80,13 @@ namespace CloudBuildLauncher
             return String.Format("{0}/orgs/{1}/projects/{2}/buildtargets",
                 cloudBuildApiBaseUrl, settings.orgId, settings.projectId);
         }
+
+        string GetAllProjectsUrl()
+        {
+            return String.Format("{0}/projects",
+                cloudBuildApiBaseUrl, settings.projectId);
+        }
+
 
         string GetChangeConfigBranchPayload(string branchName)
         {
@@ -152,5 +176,29 @@ namespace CloudBuildLauncher
             }
         }
 
+        public IEnumerator ListAllProjects()
+        {
+            var request = new UnityWebRequest(GetAllProjectsUrl(), "GET");
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SendAndWaitCompletion(settings.apiToken, 10.0f);
+            if (request.isNetworkError)
+            {
+                Debug.Log("error: " + request.error);
+                yield return "error";
+            }
+            else
+            {
+                if (request.responseCode == 200)
+                {
+                    Debug.Log("success!");
+                    yield return request.downloadHandler.text;
+                }
+                else
+                {
+                    Debug.Log("failed. response code:" + request.responseCode);
+                    yield return "error";
+                }
+            }
+        }
     }
 }

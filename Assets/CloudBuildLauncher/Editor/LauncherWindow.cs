@@ -20,7 +20,7 @@ namespace CloudBuildLauncher
         private bool initialized = false;
 
         [MenuItem("Window/Cloud Build Launcher/Launcher")]
-        static void Open()
+        static void OpenByMenu()
         {
             var settings = CloudBuildSettings.LoadSettings();
 
@@ -30,9 +30,14 @@ namespace CloudBuildLauncher
             }
             else
             {
-                var win = GetWindow<LauncherWindow>("Launcher");
-                win.minSize = new Vector2(250, 400);
+                Open();
             }
+        }
+
+        public static void Open()
+        {
+            var win = GetWindow<LauncherWindow>("Launcher");
+            win.minSize = new Vector2(250, 400);
         }
 
         HashSet<string> selectedConfigNames;
