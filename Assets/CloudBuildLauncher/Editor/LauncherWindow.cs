@@ -46,6 +46,7 @@ namespace CloudBuildLauncher
         private string branchName = "";
 
         private string status;
+        private Vector2 _scrollPosition = Vector2.zero;
 
         void SelectConfigName(string configName, bool select)
         {
@@ -84,6 +85,8 @@ namespace CloudBuildLauncher
             {
                 selectedConfigNames = new HashSet<string>();
             }
+            
+            _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
 
             // title
             EditorGUILayout.LabelField("CloudBuild Launcher", EditorStyles.boldLabel);
@@ -131,6 +134,8 @@ namespace CloudBuildLauncher
             // status text
             GUILayout.Label("Status:");
             EditorGUILayout.SelectableLabel(status, EditorStyles.textArea, GUILayout.MaxHeight(100), GUILayout.MinHeight(20));
+            
+            EditorGUILayout.EndScrollView();
         }
 
         bool IsInputValid()

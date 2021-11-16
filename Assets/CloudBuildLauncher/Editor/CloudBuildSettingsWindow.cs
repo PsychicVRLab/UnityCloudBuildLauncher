@@ -60,7 +60,7 @@ namespace CloudBuildLauncher
 
         private List<ProjectModel> projects;
         private int selectedProjectIndex;
-
+        private Vector2 _scrollPosition = Vector2.zero;
 
         private void OnGUI()
         {
@@ -69,6 +69,8 @@ namespace CloudBuildLauncher
                 initialized = true;
                 Initialize();
             }
+            
+            _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
 
             // title
             EditorGUILayout.LabelField("Cloud Build Settings", EditorStyles.boldLabel);
@@ -194,6 +196,8 @@ namespace CloudBuildLauncher
             }
             EditorGUI.EndDisabledGroup();
             GUILayout.EndHorizontal();
+            
+            EditorGUILayout.EndScrollView();
 
             if (EditorGUI.EndChangeCheck() || settings.targetConfigs.Count != targetConfigs.Count)
             {
